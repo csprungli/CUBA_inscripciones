@@ -99,7 +99,7 @@ def _bootstrap_settings_file():
 _bootstrap_settings_file()
 
 ALLOWED_LOGO_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
-URL_BASE = os.environ.get("URL_BASE", "https://metropolitanopagos-inscripciones.onrender.com")
+URL_BASE = os.environ.get("URL_BASE", "https://cuba-6tpg.onrender.com/")
 
 def extract_form_id(url_or_id):
     match = re.search(r'/d/e/([a-zA-Z0-9_-]+)(?:/viewform|/edit|/formResponse)?', url_or_id)
