@@ -18,7 +18,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 app.logger.setLevel(logging.INFO)
 
 BASE_DIR = os.path.dirname(__file__)
-DATA_DIR = os.environ.get("DATA_DIR", "/data")
+DATA_DIR = os.environ.get("DATA_DIR", "/var/data")
 
 try:
     os.makedirs(DATA_DIR, exist_ok=True)
