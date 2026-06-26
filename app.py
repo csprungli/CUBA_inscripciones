@@ -10,6 +10,8 @@ import uuid
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import re
+import secrets
+import hmac
 
 load_dotenv()
 
@@ -167,6 +169,12 @@ app.logger.info(f"DEBBUGING: {MERCADO_PAGO_ACCESS_TOKEN[:10]}")
 def get_camp_or_none(settings, camp_id):
     return next((c for c in settings.get("campeonatos", []) if c["id"] == camp_id), None)
 
+def new_admin_captcha():
+    a = secrets.randbelow(8) + 2
+    b = secrets.randbelow(8) + 2
+    session['admin_captcha_answer'] = str(a + b)
+    return f"{a} + {b}"
+    
 # ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Rutas publicas ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ
 
 
@@ -351,18 +359,30 @@ def site_closed_gate():
 @app.route('/admin', methods=['GET'])
 def admin_home():
     if not session.get('is_admin'):
-        return render_template('admin_login.html')
+        captcha_question = new_admin_captcha()
+        return render_template('admin_login.html', captcha_question=captcha_question)
+
     settings = load_settings()
     return render_template('admin.html', settings=settings, current_url_base=URL_BASE)
+
 
 @app.route('/admin/login', methods=['POST'])
 def admin_login():
     password = request.form.get('password', '')
-    expected = os.environ.get('ADMIN_PASSWORD')
-    if expected and password == expected:
+    captcha_value = request.form.get('captcha', '').strip()
+
+    expected_password = os.environ.get('ADMIN_PASSWORD')
+    expected_captcha = session.pop('admin_captcha_answer', None)
+
+    if not expected_captcha or captcha_value != expected_captcha:
+        flash('Verificación humana incorrecta. Intentá nuevamente.', 'danger')
+        return redirect(url_for('admin_home'))
+
+    if expected_password and hmac.compare_digest(password, expected_password):
         session['is_admin'] = True
         return redirect(url_for('admin_home'))
-    flash('Contrasena incorrecta', 'danger')
+
+    flash('Contraseña incorrecta', 'danger')
     return redirect(url_for('admin_home'))
 
 @app.route('/admin/logout', methods=['POST'])
